@@ -1,4 +1,6 @@
+import json
 import cv2
+import requests
 import alsaaudio as aa
 import socketio
 import numpy as np
@@ -8,12 +10,16 @@ import zlib
 
 SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
 SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
+HTTP_URL = f'http://{SERVER_IP}:1234'
 
 FORMAT = aa.PCM_FORMAT_S16_LE  # Use 16-bit signed little-endian format
 CHANNELS = 1
 RATE = 8000
 CHUNK = 1024
 sio = socketio.Client()
+
+# TODO: change this value based on the dial
+curr_room = 0
 
 # Compress and decompress functions for audio frames
 def compress_audio(audio_data):
@@ -54,6 +60,13 @@ def message(frame_data=None):
         elif frame_data['video'] is not None:
             video_frame = np.frombuffer(frame_data['video'], dtype=np.uint8)
             video_frame = cv2.imdecode(video_frame, cv2.IMREAD_COLOR)
+            
+            # lists the rooms in the corner of the screen
+            # TODO: the current room indicator won't update when the users aren't in the same room. Move this to a function that repeats infinitely.
+            for index, room in enumerate(rooms):
+                color = (255, 255, 255) if index == curr_room else (200, 200, 200)
+                cv2.putText(video_frame, room, (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            
             cv2.imshow('Video Stream', video_frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -69,7 +82,7 @@ def send_audio():
             length, data = audio_in.read()
             audio_chunks.append(data)
         audio_compressed = compress_audio(np.array(audio_chunks).tobytes())
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': 1})
+        sio.emit('send_audio', {'audio': audio_compressed, 'room': curr_room})
         time.sleep(.01)
 
 
@@ -82,7 +95,7 @@ def send_frames():
         _, encoded_frame = cv2.imencode('.jpg', frame)
         encoded_frame = encoded_frame.tobytes()
         frame_compressed = compress_video(encoded_frame)
-        sio.emit('send_frame', {'video': frame_compressed, 'room': 1})
+        sio.emit('send_frame', {'video': frame_compressed, 'room': curr_room})
         time.sleep(.05)
 
     cap.release()
@@ -90,6 +103,9 @@ def send_frames():
 
 if __name__ == '__main__':
     sio.connect(SOCKETIO_URL)
+
+    res = requests.get(f'{HTTP_URL}/rooms')
+    rooms = json.loads(res.content)
 
     try:
         # Start sending frames in a separate thread
