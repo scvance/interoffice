@@ -82,17 +82,14 @@ def message(frame_data=None):
             video_frame = np.frombuffer(frame_data['video'], dtype=np.uint8)
             video_frame = cv2.imdecode(video_frame, cv2.IMREAD_COLOR)
             
-            display_room_lock.acquire()
-            copy_display_room = display_room
-            display_room_lock.release()
+            curr_room_lock.acquire()
+            copy_curr_room = curr_room
+            curr_room_lock.release()
 
-            for index, room in enumerate(rooms):
-                color = (255, 255, 255) if index == copy_display_room else (200, 200, 200)
-                cv2.putText(video_frame, room, (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            add_text(video_frame)
             
             global curr_image
             video_lock.acquire()
-            #cv2.imshow('Video Stream', video_frame)
             curr_image = video_frame
             video_lock.release()
 
@@ -177,15 +174,21 @@ def check_room():
         if time.time() - last_video_time > 5:
             # put up a black screen and the room list if the video hasn't updated in 5 seconds
             black = np.zeros((480, 640, 3), np.uint8)
-            for index, room in enumerate(rooms):
-                color = (255, 255, 255) if index == display_room else (200, 200, 200)
-                cv2.putText(black, room, (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            add_text(black)
             
             global curr_image
             video_lock.acquire()
-            #cv2.imshow('Video Stream', black)
             curr_image = black
             video_lock.release()
+
+def add_text(img):
+    for index, room in enumerate(rooms):
+        curr_room_lock.acquire()
+        color = (255, 255, 255) if index == curr_room else (200, 200, 200)
+        curr_room_lock.release()
+        display_room_lock.acquire()
+        cv2.putText(img, room + (' <-' if index == display_room else ''), (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        display_room_lock.release()
 
 def display_video():
     cv2.namedWindow('Video Stream', cv2.WINDOW_NORMAL)
@@ -202,12 +205,23 @@ def get_input():
     while True:
         room = input()
         if room.isdigit():
+            room = int(room)
+
             global video_room
             global display_room
+            global curr_room
+
+            curr_room_lock.acquire()
             video_room_lock.acquire()
-            video_room = int(room)
-            display_room = int(room)
+            display_room_lock.acquire()
+            if room == display_room:
+                video_room = room
+                curr_room = room
+            else:
+                display_room = room
             video_room_lock.release()
+            curr_room_lock.release()
+            display_room_lock.release()
         
 
 
