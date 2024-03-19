@@ -42,6 +42,31 @@ GPIO.setup(clk, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(dt, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 last_video_frame = time.time()
 
+cv2.namedWindow('interoffice', cv2.WINDOW_NORMAL)
+cv2.setWindowProperty('interoffice', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+frame_width = None
+frame_height = None
+
+def setup_frames():
+    global frame_width
+    global frame_height
+    cap = cv2.VideoCapture(0)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    screen_width, screen_height = 1600, 1200
+    frame_aspect_ratio = frame_width / frame_height
+    screen_aspect_ratio = screen_width / screen_height
+    if frame_aspect_ratio != screen_aspect_ratio:
+        if frame_aspect_ratio > screen_aspect_ratio:
+            new_height = int(screen_width / frame_aspect_ratio)
+            frame_height = new_height
+        else:
+            new_width = int(screen_height * frame_aspect_ratio)
+            frame_width = new_width
+
+
+
 # Compress and decompress functions for audio frames
 def compress_audio(audio_data):
     return zlib.compress(audio_data)
@@ -81,7 +106,8 @@ def message(frame_data=None):
             video_frame = np.frombuffer(frame_data['video'], dtype=np.uint8)
             video_frame = cv2.imdecode(video_frame, cv2.IMREAD_COLOR)
             add_text(video_frame)
-            cv2.imshow('Video Stream', video_frame)
+            # video_frame = cv2.resize(video_frame, (frame_width, frame_height))
+            cv2.imshow('interoffice', video_frame)
             last_frame_lock.acquire()
             last_video_frame = time.time()
             last_frame_lock.release()
@@ -167,7 +193,7 @@ def check_room():
             # put up a black screen and the room list if the video hasn't updated in 5 seconds
             black = np.zeros((480, 640, 3), np.uint8)
             add_text(black)
-            cv2.imshow('Video Stream', black)
+            cv2.imshow('interoffice', black)
             cv2.waitKey(1)
 
 def add_text(img):
@@ -180,6 +206,7 @@ def add_text(img):
         display_room_lock.release()
 
 if __name__ == '__main__':
+    setup_frames()
     sio.connect(SOCKETIO_URL)
     res = requests.get(f'{HTTP_URL}/rooms')
     rooms = json.loads(res.content)
