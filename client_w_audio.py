@@ -9,6 +9,7 @@ import time
 import zlib
 import RPi.GPIO as GPIO
 
+# SERVER_IP = '172.20.10.2' # this is the ip on hotspot
 SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
 SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
 HTTP_URL = f'http://{SERVER_IP}:1234'
