@@ -163,7 +163,10 @@ def send_frames():
         for frame in frame_chunk:
             compressed_frames_stream += len(frame).to_bytes(4, byteorder='big') + frame
         video_room_lock.acquire()
-        sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+        try:
+            sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+        except Exception as e:
+            print("Error sending frame:", e)
         video_room_lock.release()
         time.sleep(0.05)
     cap.release()
