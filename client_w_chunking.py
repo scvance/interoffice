@@ -146,10 +146,10 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-    framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 30
+    framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 60
     while True:
         frame_chunk = []
-        while len(frame_chunk) < 5:
+        while len(frame_chunk) < 10:
             start_time = time.time()
             success, frame = cap.read()
             if not success:
