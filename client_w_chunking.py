@@ -103,6 +103,7 @@ def message(frame_data=None):
             finally:
                 audio_lock.release()
         elif frame_data['video'] is not None:
+            print("num clients: ", frame_data['n_clients'], "\tclient index: ", frame_data['client_index'])
             # take the decompressed joined chunk of frames and decode it into the 10 frames
             compressed_frames_stream = frame_data['video']
             while len(compressed_frames_stream) > 0:
