@@ -152,7 +152,7 @@ def send_frames():
     framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 30
     while True:
         frame_chunk = []
-        while len(frame_chunk) < 1:
+        while len(frame_chunk) < 5:
             start_time = time.time()
             success, frame = cap.read()
             if not success:
