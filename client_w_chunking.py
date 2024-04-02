@@ -180,7 +180,7 @@ def check_room():
     clkLastState = GPIO.input(clk)
     sensitivity = 2
     while True:
-        time.sleep(.01)
+        time.sleep(.001)
         clkState = GPIO.input(clk)
         dtState = GPIO.input(dt)
 
