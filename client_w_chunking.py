@@ -139,7 +139,10 @@ def send_audio():
             audio_chunks.append(data)
         audio_compressed = compress_audio(np.array(audio_chunks).tobytes())
         audio_room_lock.acquire()
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        try:
+            sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        except Exception as e:
+            print("Error sending audio:", e)
         audio_room_lock.release()
 
 
