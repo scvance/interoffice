@@ -73,7 +73,8 @@ def message(frame_data=None):
         frame = frame_data['video']
         frame = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
         add_text(frame)
-        cv2.imshow('interoffice', frame)
+        # cv2.imshow('interoffice', frame)
+        curr_image = frame
         last_frame_lock.acquire()
         last_video_frame = time.time()
         last_frame_lock.release()
