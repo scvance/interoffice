@@ -107,7 +107,7 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-    framerate = 20
+    framerate = 30
     while True:
         start_time = time.time()
         success, frame = cap.read()
@@ -153,7 +153,7 @@ def display_video():
         video_lock.acquire()
         if curr_image is not None:
             add_text(curr_image)
-            print(curr_image.shape)
+            # print(curr_image.shape)
             cv2.imshow('Video Stream', curr_image)
         video_lock.release()
         

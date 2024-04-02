@@ -133,7 +133,7 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-    framerate = 20
+    framerate = 30
     while True:
         # frame_chunk = []
         start_time = time.time()
