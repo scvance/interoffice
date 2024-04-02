@@ -7,7 +7,9 @@ from flask_socketio import send, join_room, leave_room
 import cv2
 import numpy as np
 import zlib
+import threading
 
+dictionary_lock = threading.Lock()
 
 compressor = zlib.compressobj(level=6, strategy=zlib.Z_DEFAULT_STRATEGY)
 app = Flask(__name__)
@@ -15,27 +17,62 @@ socketio = SocketIO(app)
 
 rooms = ["Evan's office", "Sam's office", "Meeting room", "Break room"]
 clients_room = {}
+clients_old_room = {}
 
 # moves the client to a new room (if necessary)
 def change_rooms(client_id, new_room):
-    old_room = clients_room[client_id]
-    if old_room != new_room:
-        if old_room != None:
-            leave_room(f'room-{old_room}')
-        clients_room[client_id] = new_room
+    global clients_room
+    global clients_old_room
+    old_room = clients_old_room[client_id] if client_id in clients_old_room.keys() else None
+    print("clients_room: ", clients_room)
+    print("clients_old_room: ", clients_old_room)
+    if new_room not in clients_room.keys():
+        dictionary_lock.acquire()
+        clients_room[new_room] = []
+        dictionary_lock.release()
+    if old_room is None:
+        if new_room in clients_room.keys():
+            dictionary_lock.acquire()
+            clients_room[new_room].append(client_id)
+            dictionary_lock.release()
         join_room(f'room-{new_room}')
+        dictionary_lock.acquire()
+        clients_old_room[client_id] = new_room
+        dictionary_lock.release()
+    elif client_id not in clients_room[new_room]:
+        leave_room(f'room-{old_room}')
+        print("\n\n\n\n\nINNER LOOP")
+        print("clients_room", clients_room)
+        print("clients_old_room", clients_old_room)
+        print(clients_room[old_room])
+        dictionary_lock.acquire()
+        clients_room[old_room] = clients_room[old_room].remove(client_id)
+        print("clients_room", clients_room)
+        print("clients_old_room", clients_old_room)
+        print("\n\n\n\n\n")
+        clients_room[new_room] = clients_room[new_room].append(client_id)
+        join_room(f'room-{new_room}')
+        clients_old_room[client_id] = new_room
+        dictionary_lock.release()
+    dictionary_lock.acquire()
+    num_clients = len(clients_room[new_room])
+    client_index = clients_room[new_room].index(client_id)
+    dictionary_lock.release()
+
+    return num_clients, client_index
+
 
 @socketio.on('connect')
 def handle_connect():
     client_id = flask.request.sid
-    clients_room[client_id] = None
+    # clients_room[client_id] = None
     print(f'Client {client_id} connected')
 
 @socketio.on('disconnect')
 def handle_disconnect():
     client_id = flask.request.sid
-    if client_id in clients_room:
-        del clients_room[client_id]
+    # if client_id in clients_room:
+    #     del clients_room[client_id]
     print(f'Client {client_id} disconnected')
 
 @socketio.on('send_audio')
@@ -45,7 +82,7 @@ def handle_send_audio(frame_request):
     client_id = flask.request.sid
     audio_frame = zlib.decompress(audio_frame)
 
-    change_rooms(client_id, room_number)
+    num_other_clients, client_index = change_rooms(client_id, room_number)
 
     if audio_frame is not None:
         socketio.send({'video': None, 'audio': audio_frame}, room=(f'room-{room_number}'), skip_sid=client_id)
@@ -59,12 +96,12 @@ def handle_send_frame(frame_request):
 
 
 
-    change_rooms(client_id, room_number)
+    num_other_clients, client_index = change_rooms(client_id, room_number)
 
     # Emit this
     # data to all clients in the same room except the sender
     if video_frame is not None:
-        socketio.send({'video': video_frame, 'audio': None}, room=(f'room-{room_number}'), skip_sid=client_id)
+        socketio.send({'video': video_frame, 'audio': None, 'n_clients':num_other_clients, 'client_index':client_index}, room=(f'room-{room_number}'), skip_sid=client_id)
 
 @app.route('/rooms')
 def get_rooms():
