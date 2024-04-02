@@ -59,7 +59,8 @@ def handle_send_frame(frame_request):
 
     change_rooms(client_id, room_number)
 
-    # Emit this data to all clients in the same room except the sender
+    # Emit this
+    # data to all clients in the same room except the sender
     if video_frame is not None:
         socketio.send({'video': video_frame, 'audio': None}, room=(f'room-{room_number}'), skip_sid=client_id)
 

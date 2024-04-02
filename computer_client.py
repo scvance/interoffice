@@ -107,8 +107,9 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-
+    framerate = 20
     while True:
+        start_time = time.time()
         success, frame = cap.read()
         if not success:
             break
@@ -118,6 +119,8 @@ def send_frames():
         video_room_lock.acquire()
         sio.emit('send_frame', {'video': frame_compressed, 'room': video_room})
         video_room_lock.release()
+        end_time = time.time()
+        time.sleep(max(1/framerate - (end_time - start_time), 0))
 
     cap.release()
 

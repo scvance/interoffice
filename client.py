@@ -133,7 +133,10 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
+    framerate = 20
     while True:
+        # frame_chunk = []
+        start_time = time.time()
         success, frame = cap.read()
         if not success:
             break
@@ -143,7 +146,9 @@ def send_frames():
         video_room_lock.acquire()
         sio.emit('send_frame', {'video': frame_compressed, 'room': video_room})
         video_room_lock.release()
-        time.sleep(.05)
+        end_time = time.time()
+        # this sleep will maintain the framerate so we don't overload the camera
+        time.sleep(max(1/framerate - (end_time - start_time), 0))
 
     cap.release()
 
@@ -189,8 +194,8 @@ def check_room():
         last_frame_lock.acquire()
         last_video_time = last_video_frame
         last_frame_lock.release()
-        if time.time() - last_video_time > 5:
-            # put up a black screen and the room list if the video hasn't updated in 5 seconds
+        if time.time() - last_video_time > 2:
+            # put up a black screen and the room list if the video hasn't updated in 2 seconds
             black = np.zeros((480, 640, 3), np.uint8)
             add_text(black)
             cv2.imshow('interoffice', black)
