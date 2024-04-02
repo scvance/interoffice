@@ -57,6 +57,8 @@ def handle_send_frame(frame_request):
     client_id = flask.request.sid
     video_frame = zlib.decompress(video_frame)
 
+
+
     change_rooms(client_id, room_number)
 
     # Emit this
