@@ -10,7 +10,8 @@ import zlib
 import RPi.GPIO as GPIO
 
 # SERVER_IP = '172.20.10.2' # this is the ip on hotspot
-SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
+# SERVER_IP = '172.20.10.13'  # get your server's IP and put it here
+SERVER_IP = '192.168.2.153'
 SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
 HTTP_URL = f'http://{SERVER_IP}:1234'
 
@@ -140,7 +141,10 @@ def send_audio():
             audio_chunks.append(data)
         audio_compressed = compress_audio(np.array(audio_chunks).tobytes())
         audio_room_lock.acquire()
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        try:
+            sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        except Exception as e:
+            print("error sending audio: ", e)
         audio_room_lock.release()
 
 
@@ -148,9 +152,11 @@ def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
     framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 60
+    start_time = time.time()
     while True:
         frame_chunk = []
-        while len(frame_chunk) < 3:
+        starting_time = time.time()
+        while time.time() - starting_time < .1:
             start_time = time.time()
             success, frame = cap.read()
             if not success:
@@ -164,7 +170,10 @@ def send_frames():
         for frame in frame_chunk:
             compressed_frames_stream += len(frame).to_bytes(4, byteorder='big') + frame
         video_room_lock.acquire()
-        sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+        try:
+            sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+        except Exception as e:
+            print("error sending frame: ", e)
         video_room_lock.release()
         time.sleep(0.05)
     cap.release()
