@@ -24,41 +24,27 @@ def change_rooms(client_id, new_room):
     global clients_room
     global clients_old_room
     old_room = clients_old_room[client_id] if client_id in clients_old_room.keys() else None
-    print("clients_room: ", clients_room)
-    print("clients_old_room: ", clients_old_room)
+    # print("clients_room: ", clients_room)
+    # print("clients_old_room: ", clients_old_room)
     if new_room not in clients_room.keys():
-        dictionary_lock.acquire()
         clients_room[new_room] = []
-        dictionary_lock.release()
     if old_room is None:
         if new_room in clients_room.keys():
-            dictionary_lock.acquire()
             clients_room[new_room].append(client_id)
-            dictionary_lock.release()
         join_room(f'room-{new_room}')
-        dictionary_lock.acquire()
         clients_old_room[client_id] = new_room
-        dictionary_lock.release()
     elif client_id not in clients_room[new_room]:
         leave_room(f'room-{old_room}')
-        print("\n\n\n\n\nINNER LOOP")
-        print("clients_room", clients_room)
-        print("clients_old_room", clients_old_room)
-        print(clients_room[old_room])
-        dictionary_lock.acquire()
-        clients_room[old_room] = clients_room[old_room].remove(client_id)
-        print("clients_room", clients_room)
-        print("clients_old_room", clients_old_room)
-        print("\n\n\n\n\n")
-        clients_room[new_room] = clients_room[new_room].append(client_id)
+        client_array = clients_room[old_room]
+        client_array.remove(client_id)
+        clients_room[old_room] = client_array
+        client_array = clients_room[new_room]
+        client_array.append(client_id)
+        clients_room[new_room] = client_array
         join_room(f'room-{new_room}')
         clients_old_room[client_id] = new_room
-        dictionary_lock.release()
-    dictionary_lock.acquire()
     num_clients = len(clients_room[new_room])
     client_index = clients_room[new_room].index(client_id)
-    dictionary_lock.release()
-
     return num_clients, client_index
 
 
@@ -71,6 +57,10 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     client_id = flask.request.sid
+    for room in clients_room.keys():
+        if client_id in clients_room[room]:
+            clients_room[room].remove(client_id)
+    clients_old_room.pop(client_id, None)
     # if client_id in clients_room:
     #     del clients_room[client_id]
     print(f'Client {client_id} disconnected')
@@ -94,7 +84,7 @@ def handle_send_frame(frame_request):
     client_id = flask.request.sid
     # video_frame = zlib.decompress(video_frame)
 
-
+    print(client_id)
 
     num_other_clients, client_index = change_rooms(client_id, room_number)
 

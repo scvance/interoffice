@@ -70,39 +70,38 @@ def message(frame_data=None):
             if audio_lock.locked():
                 audio_lock.release()
     if frame_data['video'] is not None:
-        frame = frame_data['video']
-        frame = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
-        add_text(frame)
-        # cv2.imshow('interoffice', frame)
-        curr_image = frame
-        last_frame_lock.acquire()
-        last_video_frame = time.time()
-        last_frame_lock.release()
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            sio.disconnect()
-            cv2.destroyAllWindows()
-        # take the decompressed joined chunk of frames and decode it into the 10 frames
-        # compressed_frames_stream = frame_data['video']
-        # while len(compressed_frames_stream) > 0:
-        #     # Extract the length of the compressed frame
-        #     compressed_frame_length = int.from_bytes(compressed_frames_stream[:4], byteorder='big')
-        #     compressed_frames_stream = compressed_frames_stream[4:]
-        #
-        #     # Extract the compressed frame
-        #     compressed_frame = compressed_frames_stream[:compressed_frame_length]
-        #     compressed_frames_stream = compressed_frames_stream[compressed_frame_length:]
-        #
-        #     # Decompress the compressed frame
-        #     decompressed_frame = zlib.decompress(compressed_frame)
-        #     frame = cv2.imdecode(np.frombuffer(decompressed_frame, dtype=np.uint8), cv2.IMREAD_COLOR)
-        #     add_text(frame)
-        #     cv2.imshow('interoffice', frame)
-        #     if cv2.waitKey(1) & 0xFF == ord('q'):
-        #         sio.disconnect()
-        #         cv2.destroyAllWindows()
+        client_num = frame_data['n_clients']
+        client_index = frame_data['client_index']
+        print('num clients: ', client_num, '\tclient index: ', client_index)
+        # frame = frame_data['video']
+        # frame = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
+        # add_text(frame)
+        # # cv2.imshow('interoffice', frame)
+        # global curr_image
+        # curr_image = frame
         # last_frame_lock.acquire()
         # last_video_frame = time.time()
         # last_frame_lock.release()
+        # take the decompressed joined chunk of frames and decode it into the 10 frames
+        compressed_frames_stream = frame_data['video']
+        while len(compressed_frames_stream) > 0:
+            # Extract the length of the compressed frame
+            compressed_frame_length = int.from_bytes(compressed_frames_stream[:4], byteorder='big')
+            compressed_frames_stream = compressed_frames_stream[4:]
+
+            # Extract the compressed frame
+            compressed_frame = compressed_frames_stream[:compressed_frame_length]
+            compressed_frames_stream = compressed_frames_stream[compressed_frame_length:]
+
+            # Decompress the compressed frame
+            decompressed_frame = zlib.decompress(compressed_frame)
+            frame = cv2.imdecode(np.frombuffer(decompressed_frame, dtype=np.uint8), cv2.IMREAD_COLOR)
+            add_text(frame)
+            global curr_image
+            curr_image = frame
+        last_frame_lock.acquire()
+        last_video_frame = time.time()
+        last_frame_lock.release()
 
 def send_audio():
     global audio_room
@@ -111,6 +110,7 @@ def send_audio():
     stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
     while True:
+        # time.sleep(10)
         audio_chunks = []
         for i in range(0, int(RATE / CHUNK) // 2):
             data = stream.read(CHUNK)
@@ -118,7 +118,12 @@ def send_audio():
         audio_compressed = compress_audio(np.frombuffer(b''.join(audio_chunks), dtype=np.int16))
         
         audio_room_lock.acquire()
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        try:
+            sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        except Exception as e:
+            sio.disconnect()
+            sio.connect(SOCKETIO_URL)
+            print("Error sending audio:", e)
         audio_room_lock.release()
 
     stream.stop_stream()
@@ -129,38 +134,46 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-    framerate = 10
-    while True:
-        start_time = time.time()
-        success, frame = cap.read()
-        if not success:
-            break
-        _, encoded_frame = cv2.imencode('.jpg', frame)
-        encoded_frame = encoded_frame.tobytes()
-        end_time = time.time()
-        time.sleep(max(1 / framerate - (end_time - start_time), 0))
-        compressed_frame = zlib.compress(encoded_frame)
-        video_room_lock.acquire()
-        sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
-        video_room_lock.release()
+    framerate = 20
     # while True:
-    #     frame_chunk = []
-    #     while len(frame_chunk) < 3:
-    #         start_time = time.time()
-    #         success, frame = cap.read()
-    #         if not success:
-    #             break
-    #         _, encoded_frame = cv2.imencode('.jpg', frame)
-    #         encoded_frame = encoded_frame.tobytes()
-    #         end_time = time.time()
-    #         time.sleep(max(1 / framerate - (end_time - start_time), 0))
-    #         frame_chunk.append(zlib.compress(encoded_frame))
-    #     compressed_frames_stream = b''
-    #     for frame in frame_chunk:
-    #         compressed_frames_stream += len(frame).to_bytes(4, byteorder='big') + frame
+    #     # time.sleep(10)
+    #     start_time = time.time()
+    #     success, frame = cap.read()
+    #     if not success:
+    #         break
+    #     _, encoded_frame = cv2.imencode('.jpg', frame)
+    #     encoded_frame = encoded_frame.tobytes()
+    #     end_time = time.time()
+    #     time.sleep(max(1 / framerate - (end_time - start_time), 0))
+    #     compressed_frame = zlib.compress(encoded_frame)
     #     video_room_lock.acquire()
-    #     sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+    #     sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
     #     video_room_lock.release()
+
+    while True:
+        frame_chunk = []
+        starting_time = time.time()
+        while time.time() - starting_time < .1:
+            start_time = time.time()
+            success, frame = cap.read()
+            if not success:
+                break
+            _, encoded_frame = cv2.imencode('.jpg', frame)
+            encoded_frame = encoded_frame.tobytes()
+            end_time = time.time()
+            time.sleep(max(1 / framerate - (end_time - start_time), 0))
+            frame_chunk.append(zlib.compress(encoded_frame))
+        compressed_frames_stream = b''
+        for frame in frame_chunk:
+            compressed_frames_stream += len(frame).to_bytes(4, byteorder='big') + frame
+        video_room_lock.acquire()
+        try:
+            sio.emit('send_frame', {'video': compressed_frames_stream, 'room': video_room})
+        except Exception as e:
+            sio.disconnect()
+            sio.connect(SOCKETIO_URL)
+            print("Error sending frame:", e)
+        video_room_lock.release()
     cap.release()
 
 def add_text(img):
@@ -174,7 +187,6 @@ def add_text(img):
 
 def display_video():
     cv2.namedWindow('Video Stream', cv2.WINDOW_NORMAL)
-
     while True:
         last_frame_lock.acquire()
         last_video_time = last_video_frame
