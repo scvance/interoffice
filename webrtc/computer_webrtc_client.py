@@ -18,8 +18,8 @@ async def main():
     audio_track = AudioStreamTrack()
 
     # Add tracks to peer connection
-    peer_connection.addTrack(video_track)
-    peer_connection.addTrack(audio_track)
+    video_sender = peer_connection.addTrack(video_track)
+    audio_sender = peer_connection.addTrack(audio_track)
 
     # Create an offer
     offer = await peer_connection.createOffer()
@@ -46,9 +46,8 @@ async def main():
                     # Convert frame to bytes
                     frame_bytes = cv2.imencode('.jpg', frame)[1].tobytes()
 
-                    # Send frame as bytes to server
+                    # Send frame as bytes to connected client
                     await video_track.on_frame(frame_bytes)
-                frame = await video_track.recv()
                 cv2.imshow('interoffice', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     cv2.destroyAllWindows()
@@ -60,14 +59,34 @@ async def main():
             stream = audio.open(format=pyaudio.paInt16, channels=1, rate=44100, input=True, frames_per_buffer=1024)
             while True:
                 audio_frame = stream.read(1024)
-                # Send audio frame to server
                 await audio_track.on_frame(audio_frame)
+
+        # display video and audio frames received from server
+        async def display_video():
+            while True:
+                frame = await video_track.recv()
+                cv2.imshow('interoffice', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    cv2.destroyAllWindows()
+                    break
+
+        async def display_audio():
+            audio = pyaudio.PyAudio()
+            stream = audio.open(format=pyaudio.paInt16, channels=1, rate=44100, output=True, frames_per_buffer=1024)
+            while True:
+                audio_frame = await audio_track.recv()
+                # play audio frame
+                stream.write(audio_frame.tobytes())
+
+
 
         # Start consuming video and audio frames
         video_task = asyncio.ensure_future(consume_video())
         audio_task = asyncio.ensure_future(consume_audio())
+        display_video_task = asyncio.ensure_future(display_video())
+        display_audio_task = asyncio.ensure_future(display_audio())
 
         # Wait for tasks to complete
-        await asyncio.gather(video_task, audio_task)
+        await asyncio.gather(video_task, audio_task, display_video_task, display_audio_task)
 
 asyncio.run(main())

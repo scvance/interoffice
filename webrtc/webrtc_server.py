@@ -28,9 +28,11 @@ async def index(request):
 async def offer(request):
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-    peer_connection = RTCPeerConnection()
-    connected_clients.add(peer_connection)
+    if len(connected_clients) == 0:
+        peer_connection = RTCPeerConnection()
+        connected_clients.add(peer_connection)
+    else:
+        peer_connection = connected_clients.pop()
 
     await peer_connection.setRemoteDescription(offer)
 
