@@ -7,7 +7,7 @@ import numpy as np
 import alsaaudio as aa
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaStreamTrack
-from webrtc.common import VideoStreamTrack, AudioStreamTrack
+from common import VideoStreamTrack, AudioStreamTrack
 
 #  server settings
 SERVER_IP = '192.168.2.153'
