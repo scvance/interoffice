@@ -126,7 +126,10 @@ def send_audio():
             audio_chunks.append(data)
         audio_compressed = compress_audio(np.array(audio_chunks).tobytes())
         audio_room_lock.acquire()
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        try:
+            sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        except Exception as e:
+            print("Error: ", e)
         audio_room_lock.release()
 
 
@@ -145,7 +148,10 @@ def send_frames():
         time.sleep(max(1 / framerate - (end_time - start_time), 0))
         compressed_frame = zlib.compress(encoded_frame)
         video_room_lock.acquire()
-        sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
+        try:
+            sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
+        except Exception as e:
+            print("Error: ", e)
         video_room_lock.release()
     # while True:
     #     frame_chunk = []
