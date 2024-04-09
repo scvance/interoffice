@@ -79,7 +79,7 @@ async def run_offer(pc, signaling):
     @channel.on("open")
     def on_open():
         asyncio.ensure_future(send_pings())
-
+    #
     @channel.on("message")
     def on_message(message):
         channel_log(channel, "<", message)
@@ -87,6 +87,18 @@ async def run_offer(pc, signaling):
         if isinstance(message, str) and message.startswith("pong"):
             elapsed_ms = (current_stamp() - int(message[5:])) / 1000
             print(" RTT %.2f ms" % elapsed_ms)
+
+    # @pc.on("datachannel")
+    # def on_datachannel(channel):
+    #     channel_log(channel, "-", "created by remote party")
+    #
+    #     @channel.on("message")
+    #     def on_message(message):
+    #         channel_log(channel, "<", message)
+    #
+    #         if isinstance(message, str) and message.startswith("ping"):
+    #             # reply
+    #             channel_send(channel, "pong" + message[4:])
 
     # send offer
     await pc.setLocalDescription(await pc.createOffer())
@@ -97,7 +109,7 @@ async def run_offer(pc, signaling):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Data channels ping/pong")
-    # parser.add_argument("role", choices=["offer", "answer"])
+    parser.add_argument("role", choices=["offer", "answer"])
     parser.add_argument("--verbose", "-v", action="count")
     add_signaling_arguments(parser)
 
@@ -108,11 +120,11 @@ if __name__ == "__main__":
 
     signaling = create_signaling(args)
     pc = RTCPeerConnection()
-    coro = run_answer(pc, signaling)
-    # if args.role == "offer":
-    #     coro = run_offer(pc, signaling)
-    # else:
-    #     coro = run_answer(pc, signaling)
+    # coro = run_offer(pc, signaling)
+    if args.role == "offer":
+        coro = run_offer(pc, signaling)
+    else:
+        coro = run_answer(pc, signaling)
 
     # run event loop
     loop = asyncio.get_event_loop()

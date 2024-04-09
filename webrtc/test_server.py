@@ -11,7 +11,7 @@ dictionary_lock = threading.Lock()
 
 compressor = zlib.compressobj(level=6, strategy=zlib.Z_DEFAULT_STRATEGY)
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='threading')
 
 rooms = ["Evan's office", "Sam's office", "Meeting room", "Break room"]
 clients_room = {}
@@ -67,14 +67,16 @@ def handle_rooms(request):
     room_id = request['room_id']
     offer = request['offer']
     change_rooms(client_id, room_id)
-    socketio.send({'offerer_id': client_id, 'offer': offer}, room=room_id, skip_sid=client_id)
+    socketio.send({'offerer_id': client_id, 'offer': offer, 'answerer_id': None, 'answer': None}, room=room_id, skip_sid=client_id)
 
 @socketio.on('answer')
 def handle_answer(request):
     client_id = flask.request.sid
     answer = request['answer']
     receiver_id = request['receiver_id']
-    socketio.emit('answer', {'answerer_id': client_id, 'answer': answer}, to=receiver_id)
+    room_id = request['room_id']
+    print(receiver_id)
+    socketio.send({'answerer_id': client_id, 'answer': answer, "oferer_id": None, "offer": None}, room=room_id, skip_sid=client_id)
 
 
 @app.route('/rooms')
