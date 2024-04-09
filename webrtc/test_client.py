@@ -29,6 +29,7 @@ last_frame_lock = threading.Lock()
 video_lock = threading.Lock()
 
 pc = None
+sender = None
 
 @sio.event
 async def connect():
@@ -43,14 +44,18 @@ async def disconnect():
 @sio.event
 async def message(connection_data):
     global pc
-    if connection_data['offer'] is not None:
+    global sender
+    if connection_data['offer'] is not None and pc.signalingState != 'stable':
         print('Received offer')
+        sender = False
         oferer_id = connection_data['offerer_id']
         pc = RTCPeerConnection()
         await pc.setRemoteDescription(RTCSessionDescription(sdp=connection_data['offer'], type='offer'))
         await pc.setLocalDescription(await pc.createAnswer())
+        await run(offerer=False)
         await sio.emit('answer', {'answer': pc.localDescription.sdp, 'room_id': 0, 'receiver_id': oferer_id})
-    elif connection_data['answer'] is not None:
+    elif connection_data['answer'] is not None and pc.signalingState == 'have-local-offer':
+        sender = True
         print('Received answer')
         await pc.setRemoteDescription(RTCSessionDescription(sdp=connection_data['answer'], type='answer'))
     # elif connection_data['candidate'] is not None:
@@ -117,9 +122,10 @@ async def run_answer(pc, signaling):
     # await consume_signaling(pc, signaling)
 
 
-async def run(pc):
+async def run(offerer=True):
+    global pc
     # await signaling.connect()
-
+    print(sender)
     channel = pc.createDataChannel("chat")
     channel_log(channel, "-", "created by local party")
 
@@ -152,10 +158,19 @@ async def run(pc):
                 # reply
                 channel_send(channel, "pong" + message[4:])
 
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange():
+        print("Connection state is %s" % pc.connectionState)
+        if pc.connectionState == "failed":
+            await pc.close()
+            # pcs.discard(pc)
+
     # send offer
-    await pc.setLocalDescription(await pc.createOffer())
-    # await signaling.send(pc.localDescription)
-    await sio.emit('offer', {'offer': pc.localDescription.sdp, 'room_id': 0})
+    #if pc.connectionState != 'connected' and pc.connectionState != "connecting":
+    if offerer:
+        await pc.setLocalDescription(await pc.createOffer())
+            # await signaling.send(pc.localDescription)
+        await sio.emit('offer', {'offer': pc.localDescription.sdp, 'room_id': 0})
 
     # await consume_signaling(pc, signaling)
 
@@ -169,34 +184,22 @@ async def main():
     args = parser.parse_args()
     signaling = create_signaling(args)
     pc = RTCPeerConnection()
-    coro = await run(pc)
-
-    loop = asyncio.get_event_loop()
+    # task = asyncio.create_task(run())
+    # loop = asyncio.get_event_loop()
+    # coro = await run()
 
     try:
         # loop.run_until_complete(coro)
+        await run(offerer=True)
         await sio.wait()
     except KeyboardInterrupt:
         pass
     finally:
         await sio.disconnect()
-        loop.run_until_complete(await pc.close())
-        loop.run_until_complete(signaling.close())
+        await pc.close()
+        signaling.close()
+        # loop.run_until_complete(await pc.close())
+        # loop.run_until_complete(signaling.close())
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# if __name__ == '__main__':
-#     sio.connect(SOCKETIO_URL)
-#     res = requests.get(f'{HTTP_URL}/rooms')
-#     rooms = json.loads(res.content)
-#
-#     try:
-#         # Keep the main thread alive to handle SocketIO events
-#         sio.wait()
-#     except KeyboardInterrupt:
-#         pass
-#     finally:
-#         sio.disconnect()
-#         print('Exiting...')
-
