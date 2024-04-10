@@ -153,7 +153,7 @@ def send_frames():
         except Exception as e:
             print("Error: ", e)
         video_room_lock.release()
-    time.sleep(.01)
+    time.sleep(.05)
     # while True:
     #     frame_chunk = []
     #     while len(frame_chunk) < 3:
