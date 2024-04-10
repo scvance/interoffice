@@ -248,7 +248,7 @@ def get_wifi_ssid():
     global SOCKETIO_URL
     global HTTP_URL
     try:
-        result = subprocess.run(['iwgetid', '--raw'], capture_output=True, text=True)
+        result = subprocess.run(['/sbin/iwgetid', '--raw'], capture_output=True, text=True)
         ssid = result.stdout.strip()
         print(ssid)
         if ssid == 'iPhone':
