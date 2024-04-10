@@ -249,6 +249,7 @@ def get_wifi_ssid():
         ssid = result.stdout.strip()
         print(ssid)
         if ssid == 'iPhone':
+            print("here")
             SERVER_IP = '172.20.10.2'
         elif ssid == 'MJN.Air_5G':
             SERVER_IP = '192.168.2.153'
