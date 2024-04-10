@@ -24,8 +24,8 @@ def change_rooms(client_id, new_room):
     global clients_room
     global clients_old_room
     old_room = clients_old_room[client_id] if client_id in clients_old_room.keys() else None
-    print("clients_room: ", clients_room)
-    print("clients_old_room: ", clients_old_room)
+    # print("clients_room: ", clients_room)
+    # print("clients_old_room: ", clients_old_room)
     if new_room not in clients_room.keys():
         dictionary_lock.acquire()
         clients_room[new_room] = []
@@ -41,16 +41,9 @@ def change_rooms(client_id, new_room):
         dictionary_lock.release()
     elif client_id not in clients_room[new_room]:
         leave_room(f'room-{old_room}')
-        print("\n\n\n\n\nINNER LOOP")
-        print("clients_room", clients_room)
-        print("clients_old_room", clients_old_room)
-        print(clients_room[old_room])
         dictionary_lock.acquire()
-        clients_room[old_room] = clients_room[old_room].remove(client_id)
-        print("clients_room", clients_room)
-        print("clients_old_room", clients_old_room)
-        print("\n\n\n\n\n")
-        clients_room[new_room] = clients_room[new_room].append(client_id)
+        clients_room[old_room].remove(client_id)
+        clients_room[new_room].append(client_id)
         join_room(f'room-{new_room}')
         clients_old_room[client_id] = new_room
         dictionary_lock.release()
@@ -92,7 +85,7 @@ def handle_send_frame(frame_request):
     video_frame = frame_request['video']
     room_number = frame_request['room']
     client_id = flask.request.sid
-    # video_frame = zlib.decompress(video_frame)
+    video_frame = zlib.decompress(video_frame)
 
 
 
@@ -108,4 +101,4 @@ def get_rooms():
     return jsonify(rooms)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=1234, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=1234, debug=True, allow_unsafe_werkzeug=True, use_reloader=False)
