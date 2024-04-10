@@ -8,6 +8,7 @@ import json
 import time
 import zlib
 import RPi.GPIO as GPIO
+import subprocess
 
 SERVER_IP = '172.20.10.2' # this is the ip on hotspot
 # SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
@@ -238,9 +239,27 @@ def connect():
     except Exception as e:
         print("Error: ", e)
         connect()
+        time.sleep(1)
+
+def get_wifi_ssid():
+    global SERVER_IP
+    try:
+        result = subprocess.run(['iwgetid', '--raw'], capture_output=True, text=True)
+        ssid = result.stdout.strip()
+        if ssid == 'iPhone':
+            SERVER_IP = '172.20.10.2'
+        elif ssid == 'MJN.Air_5G':
+            SERVER_IP = '192.168.2.153'
+        elif ssid == 'crocker':
+            SERVER_IP = '192.168.103.51'
+    except Exception as e:
+        print("Error:", e)
+        return None
 
 if __name__ == '__main__':
     setup_frames()
+    # set the appropriate IP address
+    get_wifi_ssid()
     connect()
     res = requests.get(f'{HTTP_URL}/rooms')
     rooms = json.loads(res.content)
