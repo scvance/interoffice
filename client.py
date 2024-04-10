@@ -231,9 +231,16 @@ def add_text(img):
         cv2.putText(img, room + (' <-' if index == display_room else ''), (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         display_room_lock.release()
 
+def connect():
+    try:
+        sio.connect(SOCKETIO_URL)
+    except Exception as e:
+        print("Error: ", e)
+        connect()
+
 if __name__ == '__main__':
     setup_frames()
-    sio.connect(SOCKETIO_URL)
+    connect()
     res = requests.get(f'{HTTP_URL}/rooms')
     rooms = json.loads(res.content)
 
