@@ -8,8 +8,9 @@ import json
 import time
 import zlib
 import RPi.GPIO as GPIO
+import subprocess
 
-SERVER_IP = '172.20.10.2' # this is the ip on hotspot
+SERVER_IP = None # this is the ip on hotspot
 # SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
 SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
 HTTP_URL = f'http://{SERVER_IP}:1234'
@@ -126,7 +127,10 @@ def send_audio():
             audio_chunks.append(data)
         audio_compressed = compress_audio(np.array(audio_chunks).tobytes())
         audio_room_lock.acquire()
-        sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        try:
+            sio.emit('send_audio', {'audio': audio_compressed, 'room': audio_room})
+        except Exception as e:
+            print("Error: ", e)
         audio_room_lock.release()
 
 
@@ -145,8 +149,12 @@ def send_frames():
         time.sleep(max(1 / framerate - (end_time - start_time), 0))
         compressed_frame = zlib.compress(encoded_frame)
         video_room_lock.acquire()
-        sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
+        try:
+            sio.emit('send_frame', {'video': compressed_frame, 'room': video_room})
+        except Exception as e:
+            print("Error: ", e)
         video_room_lock.release()
+    time.sleep(.05)
     # while True:
     #     frame_chunk = []
     #     while len(frame_chunk) < 3:
@@ -225,9 +233,41 @@ def add_text(img):
         cv2.putText(img, room + (' <-' if index == display_room else ''), (30, 50 + (35 * index)), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         display_room_lock.release()
 
+def connect():
+    try:
+        sio.connect(SOCKETIO_URL)
+    except Exception as e:
+        # print("Error: ", e)
+        time.sleep(1)
+        get_wifi_ssid()
+        connect()
+
+
+def get_wifi_ssid():
+    global SERVER_IP
+    global SOCKETIO_URL
+    global HTTP_URL
+    try:
+        result = subprocess.run(['/sbin/iwgetid', '--raw'], capture_output=True, text=True)
+        ssid = result.stdout.strip()
+        print(ssid)
+        if ssid == 'iPhone':
+            SERVER_IP = '172.20.10.2'
+        elif ssid == 'MJN.Air_5G':
+            SERVER_IP = '192.168.2.153'
+        elif ssid == 'crocker':
+            SERVER_IP = '192.168.103.51'
+        SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
+        HTTP_URL = f'http://{SERVER_IP}:1234'
+    except Exception as e:
+        print("Error:", e)
+        return None
+
 if __name__ == '__main__':
     setup_frames()
-    sio.connect(SOCKETIO_URL)
+    # set the appropriate IP address
+    get_wifi_ssid()
+    connect()
     res = requests.get(f'{HTTP_URL}/rooms')
     rooms = json.loads(res.content)
 

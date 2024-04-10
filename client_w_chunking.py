@@ -9,8 +9,8 @@ import time
 import zlib
 import RPi.GPIO as GPIO
 
-# SERVER_IP = '172.20.10.2' # this is the ip on hotspot
-SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
+SERVER_IP = '172.20.10.2' # this is the ip on hotspot
+# SERVER_IP = '192.168.2.153'  # get your server's IP and put it here
 SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
 HTTP_URL = f'http://{SERVER_IP}:1234'
 
@@ -149,10 +149,10 @@ def send_audio():
 def send_frames():
     global video_room
     cap = cv2.VideoCapture(0)
-    framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 30
+    framerate = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) != 0 else 60
     while True:
         frame_chunk = []
-        while len(frame_chunk) < 5:
+        while len(frame_chunk) < 3:
             start_time = time.time()
             success, frame = cap.read()
             if not success:
