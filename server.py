@@ -4,8 +4,6 @@ from flask import Flask, jsonify, render_template
 import flask
 from flask_socketio import SocketIO, emit
 from flask_socketio import send, join_room, leave_room
-import cv2
-import numpy as np
 import zlib
 import threading
 
