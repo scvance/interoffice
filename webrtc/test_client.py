@@ -29,7 +29,6 @@ last_frame_lock = threading.Lock()
 video_lock = threading.Lock()
 
 pc = None
-sender = None
 
 @sio.event
 async def connect():
@@ -44,10 +43,8 @@ async def disconnect():
 @sio.event
 async def message(connection_data):
     global pc
-    global sender
     if connection_data['offer'] is not None and pc.signalingState != 'stable':
         print('Received offer')
-        sender = False
         oferer_id = connection_data['offerer_id']
         pc = RTCPeerConnection()
         await pc.setRemoteDescription(RTCSessionDescription(sdp=connection_data['offer'], type='offer'))
@@ -55,7 +52,6 @@ async def message(connection_data):
         await run(offerer=False)
         await sio.emit('answer', {'answer': pc.localDescription.sdp, 'room_id': 0, 'receiver_id': oferer_id})
     elif connection_data['answer'] is not None and pc.signalingState == 'have-local-offer':
-        sender = True
         print('Received answer')
         await pc.setRemoteDescription(RTCSessionDescription(sdp=connection_data['answer'], type='answer'))
     # elif connection_data['candidate'] is not None:
@@ -63,36 +59,18 @@ async def message(connection_data):
     #     pc.addIceCandidate(RTCIceCandidate(connection_data['candidate'], sdpMid=connection_data['sdpMid'], sdpMLineIndex=connection_data['sdpMLineIndex']))
 
 
+# logging
 
 def channel_log(channel, t, message):
     print("channel(%s) %s %s" % (channel.label, t, message))
-
 
 def channel_send(channel, message):
     channel_log(channel, ">", message)
     channel.send(message)
 
-
-async def consume_signaling(pc, signaling):
-    while True:
-        obj = await signaling.receive()
-
-        if isinstance(obj, RTCSessionDescription):
-            await pc.setRemoteDescription(obj)
-
-            if obj.type == "offer":
-                # send answer
-                await pc.setLocalDescription(await pc.createAnswer())
-                await signaling.send(pc.localDescription)
-        elif isinstance(obj, RTCIceCandidate):
-            await pc.addIceCandidate(obj)
-        elif obj is BYE:
-            print("Exiting")
-            break
-
+# timing
 
 time_start = None
-
 
 def current_stamp():
     global time_start
@@ -103,29 +81,10 @@ def current_stamp():
     else:
         return int((time.time() - time_start) * 1000000)
 
-
-async def run_answer(pc, signaling):
-    await signaling.connect()
-
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        channel_log(channel, "-", "created by remote party")
-
-        @channel.on("message")
-        def on_message(message):
-            channel_log(channel, "<", message)
-
-            if isinstance(message, str) and message.startswith("ping"):
-                # reply
-                channel_send(channel, "pong" + message[4:])
-
-    # await consume_signaling(pc, signaling)
-
+# main connection method
 
 async def run(offerer=True):
     global pc
-    # await signaling.connect()
-    print(sender)
     channel = pc.createDataChannel("chat")
     channel_log(channel, "-", "created by local party")
 
@@ -172,7 +131,7 @@ async def run(offerer=True):
             # await signaling.send(pc.localDescription)
         await sio.emit('offer', {'offer': pc.localDescription.sdp, 'room_id': 0})
 
-    # await consume_signaling(pc, signaling)
+# setup
 
 async def main():
     global pc
@@ -184,12 +143,8 @@ async def main():
     args = parser.parse_args()
     signaling = create_signaling(args)
     pc = RTCPeerConnection()
-    # task = asyncio.create_task(run())
-    # loop = asyncio.get_event_loop()
-    # coro = await run()
 
     try:
-        # loop.run_until_complete(coro)
         await run(offerer=True)
         await sio.wait()
     except KeyboardInterrupt:
@@ -198,8 +153,6 @@ async def main():
         await sio.disconnect()
         await pc.close()
         signaling.close()
-        # loop.run_until_complete(await pc.close())
-        # loop.run_until_complete(signaling.close())
 
 if __name__ == "__main__":
     asyncio.run(main())
