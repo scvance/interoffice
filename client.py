@@ -239,11 +239,13 @@ def connect():
     except Exception as e:
         # print("Error: ", e)
         time.sleep(1)
+        get_wifi_ssid()
         connect()
 
 
 def get_wifi_ssid():
     global SERVER_IP
+    global SOCKETIO_URL
     try:
         result = subprocess.run(['iwgetid', '--raw'], capture_output=True, text=True)
         ssid = result.stdout.strip()
@@ -255,6 +257,7 @@ def get_wifi_ssid():
             SERVER_IP = '192.168.2.153'
         elif ssid == 'crocker':
             SERVER_IP = '192.168.103.51'
+        SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
     except Exception as e:
         print("Error:", e)
         return None
