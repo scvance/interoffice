@@ -237,15 +237,17 @@ def connect():
     try:
         sio.connect(SOCKETIO_URL)
     except Exception as e:
-        print("Error: ", e)
-        connect()
+        # print("Error: ", e)
         time.sleep(1)
+        connect()
+
 
 def get_wifi_ssid():
     global SERVER_IP
     try:
         result = subprocess.run(['iwgetid', '--raw'], capture_output=True, text=True)
         ssid = result.stdout.strip()
+        print(ssid)
         if ssid == 'iPhone':
             SERVER_IP = '172.20.10.2'
         elif ssid == 'MJN.Air_5G':
