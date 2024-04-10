@@ -1,3 +1,4 @@
+from fractions import Fraction
 import socketio
 import threading
 import requests
@@ -14,6 +15,7 @@ from aiortc.contrib.signaling import BYE, add_signaling_arguments, create_signal
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 from aiortc.rtcrtpsender import RTCRtpSender
 from av import VideoFrame
+import numpy as np
 # from common import VideoStreamTrack, AudioStreamTrack
 
 
@@ -76,6 +78,23 @@ class FlagVideoStreamTrack(VideoStreamTrack):
         data_bgr[:, :] = color
         return data_bgr
     
+class CameraVideoTrack(VideoStreamTrack):
+    """
+    A video stream track that captures video frames from a webcam.
+    """
+    def __init__(self):
+        super().__init__()  # Initialize the base class
+
+    async def recv(self):
+        frame = VideoFrame.from_ndarray(generate_frame(), format="bgr24")
+        frame.pts = time.time()
+        frame.time_base = Fraction(1, 1000)
+        return frame
+    
+def generate_frame():
+    # generate random static for now
+    return np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    
 relay = None
 webcam = None
 
@@ -127,7 +146,6 @@ display_room_lock = threading.Lock()
 last_frame_lock = threading.Lock()
 video_lock = threading.Lock()
 
-loop = asyncio.get_event_loop()
 pc = None
 
 @sio.event
@@ -139,17 +157,22 @@ async def connect():
 async def disconnect():
     print('Disconnected from server')
 
-
 @sio.event
 async def message(connection_data):
     global pc
     if connection_data['offer'] is not None and pc.signalingState != 'stable':
         print('Received offer')
         oferer_id = connection_data['offerer_id']
+
         pc = RTCPeerConnection()
+        
+        pc.addTrack(FlagVideoStreamTrack())
+
         await pc.setRemoteDescription(RTCSessionDescription(sdp=connection_data['offer'], type='offer'))
         await pc.setLocalDescription(await pc.createAnswer())
+
         run(offerer=False)
+
         await sio.emit('answer', {'answer': pc.localDescription.sdp, 'room_id': 0, 'receiver_id': oferer_id})
     elif connection_data['answer'] is not None and pc.signalingState == 'have-local-offer':
         print('Received answer')
@@ -181,6 +204,35 @@ def current_stamp():
     else:
         return int((time.time() - time_start) * 1000000)
 
+import asyncio
+import cv2
+from aiortc import MediaStreamTrack
+
+async def display_track(track: MediaStreamTrack):
+    """
+    Display the video track using OpenCV.
+    """
+    if track.kind == 'video':
+        window_title = "Received Video"
+        cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_title, 640, 480)
+        try:
+            while True:
+                frame = await track.recv()
+                image = frame.to_ndarray(format="bgr24")
+
+                cv2.imshow(window_title, image)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        except Exception as e:
+            print(f"Error displaying video: {e}")
+        finally:
+            cv2.destroyAllWindows()
+            await track.stop()
+    else:
+        print("Non-video track received, cannot display.")
+
+
 # main connection method
 
 def run(offerer=True):
@@ -188,8 +240,13 @@ def run(offerer=True):
     channel = pc.createDataChannel("chat")
     channel_log(channel, "-", "created by local party")
 
-    def add_tracks():
+    if offerer:
         pc.addTrack(FlagVideoStreamTrack())
+    # def add_tracks():
+    #     pc.addTrack(CameraVideoTrack())
+
+    # if offerer:
+    #     add_tracks()
 
     # async def send_pings():
     #     while True:
@@ -203,7 +260,7 @@ def run(offerer=True):
     #         _, frame = cv2.imencode('.jpg', frame)
     #         channel_send(channel, frame.tobytes())
 
-    audio, video = create_local_tracks(play_from=None, decode=False)
+    # audio, video = create_local_tracks(play_from=None, decode=False)
 
     # if video:
     #     pc.addTrack(video)
@@ -213,12 +270,10 @@ def run(offerer=True):
         print("Track %s received" % track.kind)
 
         if track.kind == "video":
-            # consume video
-            pc.addTrack(MediaBlackhole())
-
-    add_tracks()
-
-    print(pc.iceConnectionState, pc.iceGatheringState)
+            print("TRACK RECEIVED:", track)
+            # display track
+            asyncio.ensure_future(display_track(track))
+            
 
     @channel.on("open")
     def on_open():
