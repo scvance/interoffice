@@ -67,15 +67,31 @@ def handle_rooms(request):
     room_id = request['room_id']
     offer = request['offer']
     change_rooms(client_id, room_id)
-    socketio.send({'offerer_id': client_id, 'offer': offer, 'answerer_id': None, 'answer': None}, room=room_id, skip_sid=client_id)
+    print("offered: ", client_id)
+    if len(clients_room[room_id]) > 1:
+        print("offer: ", offer)
+        # Send the offer to other clients in the room
+        socketio.send({'offerer_id': client_id, 'offer': offer, 'answerer_id': None, 'answer': None}, room=room_id,
+                      skip_sid=client_id)
+    else:
+        print("No other clients in the room. Message skipped.")
+    # socketio.send({'offerer_id': client_id, 'offer': offer, 'answerer_id': None, 'answer': None}, room=room_id, skip_sid=client_id)
 
+@socketio.on('candidate')
+def handle_candidate(request):
+    client_id = flask.request.sid
+    candidate = request['candidate']
+    receiver_id = request['receiver_id']
+    room_id = request['room_id']
+    print("candidate: ", candidate)
+    socketio.send({'offerer_id': client_id, 'offer': None, 'answerer_id': None, 'answer': None, 'candidate': candidate}, room=room_id, skip_sid=client_id)
 @socketio.on('answer')
 def handle_answer(request):
     client_id = flask.request.sid
     answer = request['answer']
     receiver_id = request['receiver_id']
     room_id = request['room_id']
-    print(receiver_id)
+    print("answer: ", answer)
     socketio.send({'answerer_id': client_id, 'answer': answer, "oferer_id": None, "offer": None}, room=room_id, skip_sid=client_id)
 
 
