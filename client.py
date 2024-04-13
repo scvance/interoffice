@@ -255,6 +255,8 @@ def get_wifi_ssid():
             SERVER_IP = '172.20.10.2'
         elif ssid == 'MJN.Air_5G':
             SERVER_IP = '192.168.2.153'
+        elif ssid == 'Tarens iPhone':
+            SERVER_IP = '172.20.10.2'
         elif ssid == 'crocker':
             SERVER_IP = '192.168.103.51'
         SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
