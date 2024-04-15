@@ -257,8 +257,11 @@ def get_wifi_ssid():
             SERVER_IP = '192.168.2.153'
         elif ssid == 'Tarens iPhone':
             SERVER_IP = '172.20.10.2'
+        # elif ssid == 'ephraimong':
+        #     SERVER_IP = '192.168.116.51'
         elif ssid == 'crocker':
-            SERVER_IP = '192.168.103.51'
+            # SERVER_IP = '192.168.103.51'
+            SERVER_IP = '192.168.116.51'
         SOCKETIO_URL = f'ws://{SERVER_IP}:1234/'
         HTTP_URL = f'http://{SERVER_IP}:1234'
     except Exception as e:
