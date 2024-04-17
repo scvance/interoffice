@@ -77,7 +77,7 @@ def handle_send_frame(frame_request):
     video_frame = frame_request['video']
     room_number = frame_request['room']
     client_id = flask.request.sid
-    video_frame = zlib.decompress(video_frame)
+    # video_frame = zlib.decompress(video_frame)
 
     print(client_id)
 
